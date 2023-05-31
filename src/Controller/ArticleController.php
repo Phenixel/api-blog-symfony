@@ -27,14 +27,9 @@ class ArticleController extends AbstractController
     }
 
     #[Route('/api/article/{id}', name: 'detailArticle', methods: ['GET'])]
-    public function getDetailArticle(int $id, SerializerInterface $serializer, ArticleRepository $articleRepository): JsonResponse {
-
-        $article = $articleRepository->find($id);
-        if ($article) {
-            $jsonArticle = $serializer->serialize($article, 'json', ['groups' => 'getArticles']);
-            return new JsonResponse($jsonArticle, Response::HTTP_OK, [], true);
-        }
-        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
+    public function getDetailArticle(Article $article, SerializerInterface $serializer): JsonResponse {
+        $jsonArticle = $serializer->serialize($article, 'json', ['groups' => 'getArticles']);
+        return new JsonResponse($jsonArticle, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
     #[Route('/api/article/{id}', name: 'deleteArticle', methods: ['DELETE'])]
