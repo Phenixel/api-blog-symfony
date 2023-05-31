@@ -16,16 +16,26 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class ArticleController extends AbstractController
 {
     #[Route('/api/articles', name: 'app_article', methods: ['GET'])]
-    public function index(ArticleRepository $articleRepository, SerializerInterface $serializer): JsonResponse
+    public function index(ArticleRepository $articleRepository, SerializerInterface $serializer, Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
-        $articleList= $articleRepository->findAll();
-        $jsonarticleList = $serializer->serialize($articleList, 'json', ['groups' => 'getArticles']);
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
 
-        return new JsonResponse($jsonarticleList, Response::HTTP_OK, [], true);
+        $idCache = "getAllArticles-" . $page . "-" . $limit;
+
+        $jsonArticleList = $cache->get($idCache, function (ItemInterface $item) use ($articleRepository, $page, $limit, $serializer) {
+            $item->tag("articlesCache");
+            $articleList = $articleRepository->findAllWithPagination($page, $limit);
+            return $serializer->serialize($articleList, 'json', ['groups' => 'getArticles']);
+        });
+
+        return new JsonResponse($jsonArticleList, Response::HTTP_OK, [], true);
     }
 
     #[Route('/api/article/{id}', name: 'detailArticle', methods: ['GET'])]
@@ -35,8 +45,10 @@ class ArticleController extends AbstractController
     }
 
     #[Route('/api/article/{id}', name: 'deleteArticle', methods: ['DELETE'])]
-    public function deleteArticle(Article $article, EntityManagerInterface $em): JsonResponse
+    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour supprimer un article')]
+    public function deleteArticle(Article $article, EntityManagerInterface $em, TagAwareCacheInterface $cachePool): JsonResponse
     {
+        $cachePool->invalidateTags(["articlesCache"]);
         $em->remove($article);
         $em->flush();
 
