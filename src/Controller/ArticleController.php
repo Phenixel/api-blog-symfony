@@ -14,6 +14,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class ArticleController extends AbstractController
 {
@@ -41,30 +42,60 @@ class ArticleController extends AbstractController
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
-    #[Route('/api/articles', name:"createArticle", methods: ['POST'])]
-    public function createArticle(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository): JsonResponse
-    {
+//    #[Route('/api/articles', name:"createArticle", methods: ['POST'])]
+//    public function createArticle(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository, ValidatorInterface $validator): JsonResponse
+//    {
+//        $article = $serializer->deserialize($request->getContent(), Article::class, 'json');
+//
+//        // On vérifie les erreurs
+//        $errors = $validator->validate($article);
+//
+//        if ($errors->count() > 0) {
+//            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+//        }
+//
+//        $em->persist($article);
+//        $em->flush();
+//
+//        // Récupération de l'ensemble des données envoyées sous forme de tableau
+//        $content = $request->toArray();
+//
+//        // Récupération de l'idAuthor. S'il n'est pas défini, alors on met -1 par défaut.
+//        $idAuthor = $content['idAuthor'] ?? -1;
+//
+//        // On cherche l'auteur qui correspond et on l'assigne au livre.
+//        // Si "find" ne trouve pas l'auteur, alors null sera retourné.
+//        $article->setAuthor($authorRepository->find($idAuthor));
+//        $jsonArticle = $serializer->serialize($article, 'json', ['groups' => 'getArticles']);
+//        $location = $urlGenerator->generate('detailArticle', ['id' => $article->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
+//
+//        return new JsonResponse($jsonArticle, Response::HTTP_CREATED, ["Location" => $location], true);
+//    }
 
+    #[Route('/api/articles', name:"createArticle", methods: ['POST'])]
+    public function createArticle(Request $request, SerializerInterface $serializer, EntityManagerInterface $em, UrlGeneratorInterface $urlGenerator, AuthorRepository $authorRepository, ValidatorInterface $validator): JsonResponse
+    {
         $article = $serializer->deserialize($request->getContent(), Article::class, 'json');
 
-        // Récupération de l'ensemble des données envoyées sous forme de tableau
-        $content = $request->toArray();
+        // On vérifie les erreurs
+        $errors = $validator->validate($article);
 
-        // Récupération de l'idAuthor. S'il n'est pas défini, alors on met -1 par défaut.
-        $idAuthor = $content['idAuthor'] ?? -1;
-
-        // On cherche l'auteur qui correspond et on l'assigne au livre.
-        // Si "find" ne trouve pas l'auteur, alors null sera retourné.
-        $article->setAuthor($authorRepository->find($idAuthor));
+        if ($errors->count() > 0) {
+            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }
 
         $em->persist($article);
         $em->flush();
 
-        $jsonArticle = $serializer->serialize($article, 'json', ['groups' => 'getArticles']);
+        $content = $request->toArray();
+        $idAuthor = $content['idAuthor'] ?? -1;
 
+        $article->setAuthor($authorRepository->find($idAuthor));
+        $jsonArticle = $serializer->serialize($article, 'json', ['groups' => 'getArticles']);
         $location = $urlGenerator->generate('detailArticle', ['id' => $article->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
 
         return new JsonResponse($jsonArticle, Response::HTTP_CREATED, ["Location" => $location], true);
+
     }
 
     #[Route('/api/article/{id}', name:"updateArticle", methods:['PUT'])]
